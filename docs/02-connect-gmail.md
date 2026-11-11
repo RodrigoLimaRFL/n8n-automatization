@@ -27,7 +27,8 @@ Do this logged in with your **personal** Google account.
 5. **Client**: *Google Auth Platform → Clients → Create client*
    - Application type: **Web application**
    - Name: `n8n local`
-   - **Authorized redirect URIs** → Add URI:
+   - **Authorized JavaScript origins** → leave **empty**. (Pasting the URL below here gives *"Invalid Origin: URIs must not contain a path"*.)
+   - **Authorized redirect URIs** (the second section, further down) → **+ Add URI**:
      ```
      http://localhost:5678/rest/oauth2-credential/callback
      ```
@@ -45,12 +46,12 @@ With n8n running (`npm start`) at <http://localhost:5678>:
 4. Rename the credential (click its title) to exactly **`Gmail – Personal`** → Save.
 5. Repeat steps 1–4 with the **same** Client ID/Secret, but sign in with your **university** account, and name it **`Gmail – University`**.
 
-The names matter only because the starter workflow refers to them; you can also just pick the right credential in each Gmail node.
+The names just help you pick the right one in each Gmail node later.
 
 ## Part C — Run the starter workflow
 
 1. **Overview → Workflows → "01 · Gmail – read both inboxes"** (already imported by `npm run import`; or use *⋯ → Import from file* on `workflows/01-gmail-both-inboxes.json`).
-2. Open each Gmail node and confirm the credential dropdown shows the right account.
+2. Open each Gmail node and **select its credential** in *Credential to connect with* (*Gmail – Personal* / *Gmail – University*), then save (Ctrl+S). Workflow files in git don't carry credentials: n8n links nodes to credentials by an internal id that exists only in your local database.
 3. Click **Execute workflow**. Click **Combine inboxes** to see up to 10 items, each tagged `account: personal` or `account: university`.
 
 ---
@@ -60,6 +61,8 @@ The names matter only because the starter workflow refers to them; you can also 
 | Symptom | Cause / fix |
 |---|---|
 | `Error 403: access_denied` | That address isn't in **Test users** (Part A step 4). |
+| *Invalid Origin* when adding the URL in Google Cloud | You pasted it under **Authorized JavaScript origins**. Put it under **Authorized redirect URIs** instead and leave origins empty. |
+| *Node "…" uses invalid credential* | The node points at a credential id that doesn't exist in this n8n. Open the node and pick the credential from the dropdown again. |
 | `redirect_uri_mismatch` | Redirect URI in Google must match n8n's exactly — `http`, `localhost`, port `5678`, no trailing slash. |
 | University login: *"Access blocked: [university] has not granted access"* / `admin_policy_enforced` | Your university's Google Workspace admin blocks unapproved third-party apps. Options: (a) ask IT to allow it; (b) if your university account is allowed to create Cloud projects, repeat Part A *with the university account* and choose **Internal** audience — no test users and no 7-day expiry; (c) auto-forward university mail to your personal Gmail and read it there. |
 | University email isn't Google at all (Outlook/Microsoft 365) | Use n8n's **Microsoft Outlook** node + *Microsoft Outlook OAuth2* credential instead (Azure app registration). |
