@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# n8n runtime data: SQLite DB, encrypted credentials, config, logs
+.n8n/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Dependencies / caches
+node_modules/
+.cache/

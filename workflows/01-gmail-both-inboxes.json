@@ -1,0 +1,139 @@
+{
+  "name": "01 · Gmail – read both inboxes",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b1f6a0e2-0001-4c1a-9a10-000000000001",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "limit": 5,
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "id": "b1f6a0e2-0002-4c1a-9a10-000000000002",
+      "name": "Personal: unread emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [260, 80],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail – Personal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "limit": 5,
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "id": "b1f6a0e2-0003-4c1a-9a10-000000000003",
+      "name": "University: unread emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [260, 320],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail – University"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a0000001-0000-4000-8000-000000000001", "name": "account", "value": "personal", "type": "string" },
+            { "id": "a0000001-0000-4000-8000-000000000002", "name": "from", "value": "={{ $json.From }}", "type": "string" },
+            { "id": "a0000001-0000-4000-8000-000000000003", "name": "subject", "value": "={{ $json.Subject }}", "type": "string" },
+            { "id": "a0000001-0000-4000-8000-000000000004", "name": "snippet", "value": "={{ $json.snippet }}", "type": "string" },
+            { "id": "a0000001-0000-4000-8000-000000000005", "name": "receivedAt", "value": "={{ DateTime.fromMillis(Number($json.internalDate)).toISO() }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1f6a0e2-0004-4c1a-9a10-000000000004",
+      "name": "Tag as personal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [520, 80]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a0000002-0000-4000-8000-000000000001", "name": "account", "value": "university", "type": "string" },
+            { "id": "a0000002-0000-4000-8000-000000000002", "name": "from", "value": "={{ $json.From }}", "type": "string" },
+            { "id": "a0000002-0000-4000-8000-000000000003", "name": "subject", "value": "={{ $json.Subject }}", "type": "string" },
+            { "id": "a0000002-0000-4000-8000-000000000004", "name": "snippet", "value": "={{ $json.snippet }}", "type": "string" },
+            { "id": "a0000002-0000-4000-8000-000000000005", "name": "receivedAt", "value": "={{ DateTime.fromMillis(Number($json.internalDate)).toISO() }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1f6a0e2-0005-4c1a-9a10-000000000005",
+      "name": "Tag as university",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [520, 320]
+    },
+    {
+      "parameters": {},
+      "id": "b1f6a0e2-0006-4c1a-9a10-000000000006",
+      "name": "Combine inboxes",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [780, 200]
+    },
+    {
+      "parameters": {
+        "content": "## How this works\n1. **Run manually** fires once when you click *Execute workflow*.\n2. Each **Gmail** node uses a *different credential* (one per Google account) and fetches up to 5 unread emails.\n3. **Tag as …** (Edit Fields) keeps only the fields we care about and adds `account` so we know where each email came from.\n4. **Combine inboxes** (Merge → Append) stacks both lists into one.\n\nClick any node after running to see its input/output items.",
+        "height": 300,
+        "width": 420
+      },
+      "id": "b1f6a0e2-0007-4c1a-9a10-000000000007",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-120, -260]
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          { "node": "Personal: unread emails", "type": "main", "index": 0 },
+          { "node": "University: unread emails", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Personal: unread emails": {
+      "main": [[{ "node": "Tag as personal", "type": "main", "index": 0 }]]
+    },
+    "University: unread emails": {
+      "main": [[{ "node": "Tag as university", "type": "main", "index": 0 }]]
+    },
+    "Tag as personal": {
+      "main": [[{ "node": "Combine inboxes", "type": "main", "index": 0 }]]
+    },
+    "Tag as university": {
+      "main": [[{ "node": "Combine inboxes", "type": "main", "index": 1 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
