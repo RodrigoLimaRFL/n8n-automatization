@@ -61,19 +61,19 @@ Every run is saved under **Executions** with each node's input and output. Your 
 - **Execute workflow** in the editor = test run, right now.
 - **Publish** (n8n 2.x; it used to be "Activate") = the triggers go live and run on their own, e.g. every morning at 7:00. Only published workflows react to schedules or new emails.
 
-## How our starter workflow flows
+## How our workflow flows
 
 ```
-Run manually ──┬──► Personal: unread emails ──► Tag as personal ────┐
-               │    (credential: Gmail – Personal)                  ├──► Combine inboxes
-               └──► University: unread emails ─► Tag as university ─┘    (Merge: append)
-                    (credential: Gmail – University)
+trigger ─► Build Gmail search ─┬─► Personal: emails ──► Tag as personal ────┐
+ (1 item: { days, query })     │   (credential: Gmail – Personal)           ├──► Combine inboxes
+                               └─► University: emails ─► Tag as university ─┘    (Merge: append)
+                                   (credential: Gmail – University)
 ```
 
-1. The trigger emits **1 empty item**, which goes to both branches.
-2. Each Gmail node fetches up to 5 unread messages. *Simplify* is on, so headers like `From` and `Subject` come through as top-level fields.
-3. *Edit Fields* keeps 5 clean fields and adds `account`, so after merging we still know where each email came from.
-4. *Merge (Append)* waits for both inputs and outputs one combined list.
+1. A trigger fires: the daily schedule or the form. Details are in [03 · Daily schedule + on-demand form](03-schedule-and-form.md). It is reduced to **1 item** like `{ days: 3, query: "newer_than:3d" }`, which goes to both branches.
+2. Each Gmail node runs that search. *Simplify* is on, so headers like `From` and `Subject` come through as top-level fields.
+3. *Edit Fields* keeps the useful fields and adds `account` and `unread`, so after merging we still know where each email came from.
+4. *Merge (Append)* outputs one combined list, even when one inbox returned nothing.
 
 ## Where Claude comes in (next steps)
 

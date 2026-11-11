@@ -12,3 +12,6 @@ Thumbs.db
 # Dependencies / caches
 node_modules/
 .cache/
+
+# Background n8n logs (scripts/start-n8n.ps1)
+logs/

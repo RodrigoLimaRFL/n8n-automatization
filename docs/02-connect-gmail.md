@@ -52,7 +52,7 @@ The names just help you pick the right one in each Gmail node later.
 
 1. **Overview → Workflows → "01 · Gmail – read both inboxes"** (already imported by `npm run import`; or use *⋯ → Import from file* on `workflows/01-gmail-both-inboxes.json`).
 2. Open each Gmail node and **select its credential** in *Credential to connect with* (*Gmail – Personal* / *Gmail – University*), then save (Ctrl+S). Workflow files in git don't carry credentials: n8n links nodes to credentials by an internal id that exists only in your local database.
-3. Click **Execute workflow**. Click **Combine inboxes** to see up to 10 items, each tagged `account: personal` or `account: university`.
+3. Run it from the form trigger (see [03 · Daily schedule + on-demand form](03-schedule-and-form.md)), then click **Combine inboxes**. Each item is tagged `account: personal` or `account: university`.
 
 ---
 

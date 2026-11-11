@@ -1,57 +1,198 @@
 {
+  "id": "YCWb2Hte6XcT9R9K",
   "name": "01 · Gmail – read both inboxes",
   "nodes": [
     {
-      "parameters": {},
-      "id": "b1f6a0e2-0001-4c1a-9a10-000000000001",
-      "name": "Run manually",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "b1f6a0e2-0010-4c1a-9a10-000000000010",
+      "name": "Every day at 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
       "position": [
         0,
-        200
+        -120
       ]
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "getAll",
-        "limit": 5,
-        "filters": {
-          "readStatus": "unread"
-        }
+        "formTitle": "Read my emails",
+        "formDescription": "Fetch emails from both inboxes (personal + university).",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Range",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Last N days"
+                  },
+                  {
+                    "option": "All emails"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Days",
+              "fieldType": "number",
+              "placeholder": "Only for \"Last N days\" (empty = 3)"
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "b1f6a0e2-0002-4c1a-9a10-000000000002",
-      "name": "Personal: unread emails",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
+      "id": "b1f6a0e2-0012-4c1a-9a10-000000000012",
+      "name": "Read emails on demand",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
       "position": [
-        260,
-        80
-      ]
+        0,
+        260
+      ],
+      "webhookId": "5f0c2b7e-3a8d-4e51-9c6a-2d7f1e4b8a90"
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "getAll",
-        "limit": 5,
-        "filters": {
-          "readStatus": "unread"
-        }
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0000004-0000-4000-8000-000000000001",
+              "name": "days",
+              "value": "={{ $json.Range === 'All emails' ? 0 : (Number($json.Days) || 3) }}",
+              "type": "number"
+            },
+            {
+              "id": "a0000004-0000-4000-8000-000000000002",
+              "name": "source",
+              "value": "form",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "b1f6a0e2-0003-4c1a-9a10-000000000003",
-      "name": "University: unread emails",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
+      "id": "b1f6a0e2-0013-4c1a-9a10-000000000013",
+      "name": "On demand: chosen range",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
-        260,
-        320
+        240,
+        260
       ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
+            {
+              "id": "a0000005-0000-4000-8000-000000000001",
+              "name": "days",
+              "value": "={{ $json.days }}",
+              "type": "number"
+            },
+            {
+              "id": "a0000005-0000-4000-8000-000000000002",
+              "name": "query",
+              "value": "={{ $json.days > 0 ? 'newer_than:' + $json.days + 'd' : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "a0000005-0000-4000-8000-000000000003",
+              "name": "source",
+              "value": "={{ $json.source }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1f6a0e2-0014-4c1a-9a10-000000000014",
+      "name": "Build Gmail search",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": true,
+        "filters": {
+          "q": "={{ $json.query }}",
+          "readStatus": "both"
+        }
+      },
+      "id": "b1f6a0e2-0002-4c1a-9a10-000000000002",
+      "name": "Personal: emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "VYCu7cx0lBRDu3qK",
+          "name": "Gmail – Personal"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": true,
+        "filters": {
+          "q": "={{ $json.query }}",
+          "readStatus": "both"
+        }
+      },
+      "id": "b1f6a0e2-0003-4c1a-9a10-000000000003",
+      "name": "University: emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        240
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GBeTyyAY14kfjEMv",
+          "name": "Gmail – University"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0000001-0000-4000-8000-000000000007",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
             {
               "id": "a0000001-0000-4000-8000-000000000001",
               "name": "account",
@@ -81,6 +222,12 @@
               "name": "receivedAt",
               "value": "={{ DateTime.fromMillis(Number($json.internalDate)).toISO() }}",
               "type": "string"
+            },
+            {
+              "id": "a0000001-0000-4000-8000-000000000006",
+              "name": "unread",
+              "value": "={{ ($json.labels || []).some(l => l.id === 'UNREAD') }}",
+              "type": "boolean"
             }
           ]
         },
@@ -91,14 +238,20 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        520,
-        80
+        960,
+        0
       ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
+            {
+              "id": "a0000002-0000-4000-8000-000000000007",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
             {
               "id": "a0000002-0000-4000-8000-000000000001",
               "name": "account",
@@ -128,6 +281,12 @@
               "name": "receivedAt",
               "value": "={{ DateTime.fromMillis(Number($json.internalDate)).toISO() }}",
               "type": "string"
+            },
+            {
+              "id": "a0000002-0000-4000-8000-000000000006",
+              "name": "unread",
+              "value": "={{ ($json.labels || []).some(l => l.id === 'UNREAD') }}",
+              "type": "boolean"
             }
           ]
         },
@@ -138,8 +297,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        520,
-        320
+        960,
+        240
       ]
     },
     {
@@ -149,44 +308,120 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        780,
-        200
+        1200,
+        120
       ]
     },
     {
       "parameters": {
-        "content": "## How this works\n1. **Run manually** fires once when you click *Execute workflow*.\n2. Each **Gmail** node uses a *different credential* (one per Google account) and fetches up to 5 unread emails.\n3. **Tag as …** (Edit Fields) keeps only the fields we care about and adds `account` so we know where each email came from.\n4. **Combine inboxes** (Merge → Append) stacks both lists into one.\n\nClick any node after running to see its input/output items.",
-        "height": 300,
-        "width": 420
+        "content": "## How this works\n**Three triggers, one pipeline.** Only one fires per run:\n- **Every day at 07:00** and **When n8n starts or is published** both go through **Daily run due?**. It lets a run through only after 07:00 and only if today's run hasn't happened yet, so a missed 07:00 run happens as soon as n8n is back.\n- **Read emails on demand** (form): last N days, or all emails. Always runs.\n\n**Build Gmail search** turns `days` into `newer_than:Nd` (empty = everything). Each **Gmail** node runs it with its own credential and retries if the network isn't up yet.\n**Record run + clean up** marks today as done (daily runs only) in the workflow's static data.\n\n⚠️ Triggers and static data only work when the workflow is **Published**.",
+        "height": 400,
+        "width": 560
       },
       "id": "b1f6a0e2-0007-4c1a-9a10-000000000007",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -120,
-        -260
+        -40,
+        -560
+      ]
+    },
+    {
+      "parameters": {
+        "events": [
+          "init",
+          "activate",
+          "update"
+        ]
+      },
+      "id": "b1f6a0e2-0015-4c1a-9a10-000000000015",
+      "name": "When n8n starts or is published",
+      "type": "n8n-nodes-base.n8nTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Decides whether the daily run should happen now.\n// Static data survives restarts, but n8n only saves it for real runs of a\n// published workflow, not for tests in the editor.\nconst state = $getWorkflowStaticData('global');\nconst RUN_HOUR = 7;\nconst now = $now; // workflow timezone (Workflow settings → Timezone)\nconst today = now.toISODate();\nconst dueAt = now.startOf('day').set({ hour: RUN_HOUR });\nconst source = $input.first().json.event ? 'catch-up' : 'schedule';\n\nif (now < dueAt.minus({ minutes: 1 })) return []; // before 07:00: the schedule will handle it\nif (state.lastDailyRun === today) return [];      // already ran today\n\n// Normally 3 days. If n8n was off for longer, widen the window so no email is missed.\nlet days = 3;\nif (state.lastDailyRun) {\n  const last = DateTime.fromISO(state.lastDailyRun, { zone: now.zone });\n  days = Math.max(3, Math.round(now.startOf('day').diff(last, 'days').days) + 1);\n}\nreturn [{ json: { days, source, lastDailyRun: state.lastDailyRun ?? null } }];\n"
+      },
+      "id": "b1f6a0e2-0016-4c1a-9a10-000000000016",
+      "name": "Daily run due?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -30
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Runs last, so a daily run only counts as done if every step before it succeeded.\nconst { source } = $('Build Gmail search').first().json;\nif (source !== 'form') {\n  $getWorkflowStaticData('global').lastDailyRun = $now.toISODate();\n}\n// Drop the empty placeholder items Gmail outputs when an inbox has no matches.\nreturn $input.all().filter(item => item.json.id);"
+      },
+      "id": "b1f6a0e2-0017-4c1a-9a10-000000000017",
+      "name": "Record run + clean up",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        120
       ]
     }
   ],
   "connections": {
-    "Run manually": {
+    "Every day at 07:00": {
       "main": [
         [
           {
-            "node": "Personal: unread emails",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "University: unread emails",
+            "node": "Daily run due?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Personal: unread emails": {
+    "Read emails on demand": {
+      "main": [
+        [
+          {
+            "node": "On demand: chosen range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On demand: chosen range": {
+      "main": [
+        [
+          {
+            "node": "Build Gmail search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gmail search": {
+      "main": [
+        [
+          {
+            "node": "Personal: emails",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "University: emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Personal: emails": {
       "main": [
         [
           {
@@ -197,7 +432,7 @@
         ]
       ]
     },
-    "University: unread emails": {
+    "University: emails": {
       "main": [
         [
           {
@@ -229,10 +464,44 @@
           }
         ]
       ]
+    },
+    "When n8n starts or is published": {
+      "main": [
+        [
+          {
+            "node": "Daily run due?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily run due?": {
+      "main": [
+        [
+          {
+            "node": "Build Gmail search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine inboxes": {
+      "main": [
+        [
+          {
+            "node": "Record run + clean up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
   },
   "pinData": {}
 }

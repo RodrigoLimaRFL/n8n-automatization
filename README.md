@@ -2,7 +2,7 @@
 
 A learning project: a self-hosted [n8n](https://n8n.io) instance (installed with npm) that will use **Claude** to manage **Google Calendar** from my **personal** and **university** Gmail inboxes.
 
-**Status:** step 1, both Gmail accounts connected and read by a starter workflow.
+**Status:** both Gmail accounts connected. A workflow reads the last 3 days of email every morning, or any range on demand through a form.
 
 ## Quick start
 
@@ -26,6 +26,8 @@ Then follow **[docs/02-connect-gmail.md](docs/02-connect-gmail.md)** to connect 
 | `npm start` | Runs n8n with `.env` loaded |
 | `npm run export` | Writes every workflow from n8n's DB to `workflows/` (one JSON file each). Run before committing. |
 | `npm run import` | Loads every `workflows/*.json` into n8n |
+| `npm run stop` | Stops the n8n running on port 5678 (e.g. the hidden autostart one) |
+| `npm run autostart:install` / `autostart:remove` | Start n8n hidden at Windows logon, or stop doing so ([docs/04](docs/04-autostart.md)) |
 
 > Export file names follow the workflow's internal id. Rename them if you like; import doesn't care.
 
@@ -42,11 +44,16 @@ docs/                 learning notes
 
 1. [How n8n works](docs/01-how-n8n-works.md): processes, workflows, items, expressions, credentials
 2. [Connect two Gmail accounts](docs/02-connect-gmail.md): Google Cloud OAuth setup
+3. [Daily schedule + on-demand form](docs/03-schedule-and-form.md): multiple triggers, Gmail search, publishing
+4. [Start n8n automatically with Windows](docs/04-autostart.md): Task Scheduler, background logs
 
 ## Roadmap
 
 - [x] n8n running locally via npm
-- [x] Read unread mail from both Gmail accounts
+- [x] Read mail from both Gmail accounts
+- [x] Daily run (last 3 days) + on-demand form (last N days / all)
+- [x] Missed 07:00 run is caught up when n8n starts
+- [x] n8n starts automatically at Windows logon
 - [ ] Google Calendar credentials (same Google Cloud app, Calendar API already enabled)
 - [ ] Claude (Anthropic Chat Model + AI Agent) extracts events and deadlines from email
 - [ ] Scheduled workflow that creates calendar events automatically
