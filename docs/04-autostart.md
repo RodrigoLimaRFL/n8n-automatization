@@ -9,6 +9,7 @@ A **Windows Task Scheduler** task named **`n8n autostart`** runs as your user (n
 ```
 Task "n8n autostart" (at logon + 30 s)
   └─ powershell -WindowStyle Hidden -File scripts\start-n8n.ps1
+       ├─ Claude bridge not running? → start it (port 5681)  >> logs\claude-bridge.log
        ├─ port 5678 already in use? → exit (never starts a second n8n)
        └─ node --env-file=.env node_modules\n8n\bin\n8n start  >> logs\n8n.log
 ```

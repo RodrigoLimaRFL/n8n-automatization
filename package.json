@@ -12,7 +12,9 @@
     "import": "node --env-file=.env node_modules/n8n/bin/n8n import:workflow --separate --input=workflows/",
     "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-n8n.ps1",
     "autostart:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-autostart.ps1",
-    "autostart:remove": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-autostart.ps1"
+    "autostart:remove": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-autostart.ps1",
+    "bridge": "node --env-file=.env scripts/claude-bridge.mjs",
+    "link": "node scripts/link-credentials.mjs"
   },
   "dependencies": {
     "n8n": "2.47.4"

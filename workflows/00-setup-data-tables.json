@@ -1,0 +1,233 @@
+{
+  "id": "setupTables00000",
+  "name": "00 · Setup – data tables",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1de5eca6-77c4-442c-b04b-fca12e6240bc",
+      "name": "Run once to set up",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "n8n_email_tasks",
+        "columns": {
+          "column": [
+            {
+              "name": "title",
+              "type": "string"
+            },
+            {
+              "name": "details",
+              "type": "string"
+            },
+            {
+              "name": "type",
+              "type": "string"
+            },
+            {
+              "name": "kind",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "type": "string"
+            },
+            {
+              "name": "due_date",
+              "type": "string"
+            },
+            {
+              "name": "start_time",
+              "type": "string"
+            },
+            {
+              "name": "end_time",
+              "type": "string"
+            },
+            {
+              "name": "calendar_event_id",
+              "type": "string"
+            },
+            {
+              "name": "google_task_id",
+              "type": "string"
+            },
+            {
+              "name": "source_account",
+              "type": "string"
+            },
+            {
+              "name": "last_email_id",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "id": "59656f50-f911-4104-a017-2fc8bca30fea",
+      "name": "Create table n8n_email_tasks",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "n8n_processed_emails",
+        "columns": {
+          "column": [
+            {
+              "name": "message_id",
+              "type": "string"
+            },
+            {
+              "name": "account",
+              "type": "string"
+            },
+            {
+              "name": "sender",
+              "type": "string"
+            },
+            {
+              "name": "subject",
+              "type": "string"
+            },
+            {
+              "name": "received_at",
+              "type": "string"
+            },
+            {
+              "name": "tasks_found",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "id": "12e41b74-1697-4e7e-9155-360fd811d604",
+      "name": "Create table n8n_processed_emails",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "n8n_email_senders",
+        "columns": {
+          "column": [
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "is_person",
+              "type": "boolean"
+            },
+            {
+              "name": "emails_analyzed",
+              "type": "number"
+            },
+            {
+              "name": "emails_with_tasks",
+              "type": "number"
+            },
+            {
+              "name": "skip",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "id": "7ff386dc-341a-4acb-a6a7-0126be26ef8f",
+      "name": "Create table n8n_email_senders",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Setup (run once)\nCreates the three Data Tables the email → tasks workflow uses (safe to run again: existing tables are kept).\n- **n8n_email_tasks**: every task Claude found, with its Google Calendar event id or Google Tasks id\n- **n8n_processed_emails**: Gmail message ids already read, so no email is read twice\n- **n8n_email_senders**: per-sender stats, used to skip senders that never send tasks\n\nSee them under **Overview → Data tables**.",
+        "width": 720,
+        "height": 260
+      },
+      "id": "f2b53694-6103-4f31-8639-dd20630e5234",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -300
+      ]
+    }
+  ],
+  "connections": {
+    "Run once to set up": {
+      "main": [
+        [
+          {
+            "node": "Create table n8n_email_tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create table n8n_email_tasks": {
+      "main": [
+        [
+          {
+            "node": "Create table n8n_processed_emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create table n8n_processed_emails": {
+      "main": [
+        [
+          {
+            "node": "Create table n8n_email_senders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -2,7 +2,7 @@
 
 A learning project: a self-hosted [n8n](https://n8n.io) instance (installed with npm) that will use **Claude** to manage **Google Calendar** from my **personal** and **university** Gmail inboxes.
 
-**Status:** both Gmail accounts connected. A workflow reads the last 3 days of email every morning, or any range on demand through a form.
+**Status:** both Gmail accounts are read every morning, or on demand through a form. Claude (through your Claude plan) turns new emails into Google Calendar events and Google Tasks, updates them when plans change, and marks cancellations.
 
 ## Quick start
 
@@ -26,7 +26,9 @@ Then follow **[docs/02-connect-gmail.md](docs/02-connect-gmail.md)** to connect 
 | `npm start` | Runs n8n with `.env` loaded |
 | `npm run export` | Writes every workflow from n8n's DB to `workflows/` (one JSON file each). Run before committing. |
 | `npm run import` | Loads every `workflows/*.json` into n8n |
-| `npm run stop` | Stops the n8n running on port 5678 (e.g. the hidden autostart one) |
+| `npm run stop` | Stops n8n (port 5678) and the Claude bridge (port 5681) |
+| `npm run bridge` | Runs the Claude bridge in this terminal (normally started with n8n) |
+| `npm run link` | Links workflow files to your credentials by name, then imports them |
 | `npm run autostart:install` / `autostart:remove` | Start n8n hidden at Windows logon, or stop doing so ([docs/04](docs/04-autostart.md)) |
 
 > Export file names follow the workflow's internal id. Rename them if you like; import doesn't care.
@@ -37,6 +39,7 @@ Then follow **[docs/02-connect-gmail.md](docs/02-connect-gmail.md)** to connect 
 .env / .env.example   config (env vars); .env holds the encryption key and is gitignored
 .n8n/                 n8n's live data: SQLite DB, encrypted credentials, executions (gitignored)
 workflows/            workflow JSON, the version-controlled source of truth
+scripts/              start/stop/autostart, the Claude bridge, credential linking
 docs/                 learning notes
 ```
 
@@ -46,6 +49,7 @@ docs/                 learning notes
 2. [Connect two Gmail accounts](docs/02-connect-gmail.md): Google Cloud OAuth setup
 3. [Daily schedule + on-demand form](docs/03-schedule-and-form.md): multiple triggers, Gmail search, publishing
 4. [Start n8n automatically with Windows](docs/04-autostart.md): Task Scheduler, background logs
+5. [Claude turns emails into tasks](docs/05-email-to-tasks.md): sub-workflows, Data Tables, structured output, the Claude bridge, **setup steps**
 
 ## Roadmap
 
@@ -54,9 +58,8 @@ docs/                 learning notes
 - [x] Daily run (last 3 days) + on-demand form (last N days / all)
 - [x] Missed 07:00 run is caught up when n8n starts
 - [x] n8n starts automatically at Windows logon
-- [ ] Google Calendar credentials (same Google Cloud app, Calendar API already enabled)
-- [ ] Claude (Anthropic Chat Model + AI Agent) extracts events and deadlines from email
-- [ ] Scheduled workflow that creates calendar events automatically
+- [x] Claude reads each new email once and creates/updates/cancels Calendar events and Google Tasks
+- [x] Senders that aren't people and never send tasks are skipped
 
 ## Notes
 
