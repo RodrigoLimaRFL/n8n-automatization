@@ -27,8 +27,10 @@ You can see and edit it in **Task Scheduler** (Start menu â†’ "Task Scheduler" â
 |---|---|
 | `npm run autostart:install` | Create or update the task (safe to re-run) |
 | `npm run autostart:remove` | Delete the task (doesn't stop a running n8n) |
-| `npm run stop` | Stop the n8n running on port 5678 (e.g. the hidden one) |
-| `powershell -File scripts\start-n8n.ps1` | Start it in the background now, without logging out and in |
+| `npm run stop` | Stop n8n and the Claude bridge (e.g. the hidden ones) |
+| `npm run restart` | Stop both, then start them **in the background** through the task (e.g. after editing `.env`) |
+
+`scripts\start-n8n.ps1` is what the task runs. Started by hand in a terminal, it keeps running in that window for as long as n8n runs (it looks stuck), and closing the window stops n8n. Use `npm run restart` instead.
 
 `npm start` still works for watching n8n's output live, but only one n8n can use port 5678: run `npm run stop` first. Background output goes to `logs\n8n.log`, which is rotated at 5 MB and kept out of git.
 

@@ -82,7 +82,7 @@ To un-skip someone: in `n8n_email_senders`, set `skip` to false **and** `emails_
    ```bash
    claude setup-token
    ```
-   Put the token it prints in `.env` as `CLAUDE_CODE_OAUTH_TOKEN=...`, then restart the bridge: `npm run stop`, then `powershell -File scripts\start-n8n.ps1`. Check it with:
+   Put the token it prints in `.env` as `CLAUDE_CODE_OAUTH_TOKEN=...`, then restart n8n and the bridge with `npm run restart`. Check it with:
    ```bash
    curl -s -X POST http://127.0.0.1:5681/ask -H "content-type: application/json" -d "{\"prompt\":\"Responda só: ok\"}"
    ```

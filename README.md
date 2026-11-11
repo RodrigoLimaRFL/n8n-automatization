@@ -27,6 +27,7 @@ Then follow **[docs/02-connect-gmail.md](docs/02-connect-gmail.md)** to connect 
 | `npm run export` | Writes every workflow from n8n's DB to `workflows/` (one JSON file each). Run before committing. |
 | `npm run import` | Loads every `workflows/*.json` into n8n |
 | `npm run stop` | Stops n8n (port 5678) and the Claude bridge (port 5681) |
+| `npm run restart` | Stops both and starts them again in the background (after editing `.env`) |
 | `npm run bridge` | Runs the Claude bridge in this terminal (normally started with n8n) |
 | `npm run link` | Links workflow files to your credentials by name, then imports them |
 | `npm run autostart:install` / `autostart:remove` | Start n8n hidden at Windows logon, or stop doing so ([docs/04](docs/04-autostart.md)) |
