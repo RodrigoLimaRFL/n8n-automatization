@@ -107,7 +107,9 @@ const server = http.createServer((req, res) => {
     enqueue(async () => {
       const started = Date.now();
       const r = await runClaude(body);
-      log(r.ok ? 'ok' : 'error', `${Date.now() - started}ms`, r.ok ? '' : r.error.slice(0, 300));
+      const u = r.usage || {};
+      const tokens = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+      log(r.ok ? 'ok' : 'error', `${Date.now() - started}ms`, r.ok ? `tokens in=${tokens} out=${u.output_tokens || 0}` : r.error.slice(0, 300));
       send(res, r.ok ? 200 : 502, r);
     });
   });

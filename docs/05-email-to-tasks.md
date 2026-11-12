@@ -25,24 +25,25 @@ Colors (Tomato/red is reserved for cancellations, Flamingo isn't used because it
 ## How it fits together
 
 ```
-01 · Gmail – read both inboxes                       02 · Email → tasks (Claude)   ← once per new email
-  … → Combine inboxes ─┬─► Only real emails             Email from 01
-                       │   Not processed yet  (table)   ├─ Gmail: full email (right account)
-                       │   Sender not skipped (table)   ├─ Clean email
-                       │   Oldest first                 ├─ Sender history, Open tasks  (tables)
-                       │   Process each email (02) ───► ├─ Build Claude request → Ask Claude ──► Claude bridge (localhost:5681)
-                       │                                │                                         └─ claude -p (your Claude plan)
-                       └─► Record run + clean up        ├─ Plan actions → What to do ─┬─ Calendar: create / update / mark cancelled
-                                                        │                              ├─ Tasks: create / update / mark CANCELADA
-                                                        │                              └─ …then save it in n8n_email_tasks
-                                                        └─ Count sender stats → Mark email processed → Update sender
+01 · Gmail – read both inboxes                     02 · Emails → tasks (Claude)   ← once per BATCH of up to 8 emails
+  … → Combine inboxes ─┬─► Only real emails           Batch from 01 → One item per email
+                       │   Not processed yet (table)   ├─ Gmail: full email (right account) → Clean email
+                       │   Sender not skipped (table)  ├─ Senders (table) → Drop skipped senders
+                       │   Oldest first                ├─ Open tasks (table)
+                       │   Make batches (8 each)       ├─ Build Claude request → Ask Claude ──► Claude bridge (localhost:5681)
+                       │   Process batches (02) ─────► │                                         └─ claude -p (your Claude plan)
+                       │     └ failed batch → retry    ├─ Plan actions → What to do ─┬─ Calendar: create / update / mark cancelled
+                       │       as single emails        │                              ├─ Tasks: create / update / mark CANCELADA
+                       └─► Record run + clean up       │                              └─ …then save it in n8n_email_tasks
+                                                       └─ Count emails → Mark emails processed → Sender rows → Update senders
 ```
 
 ### New n8n concepts
 
-- **Sub-workflows.** 01 calls 02 with the **Execute Workflow** node in *Run once for each item* mode: one email at a time, oldest first, each finishing before the next starts. That matters because email #2 may update a task email #1 just created. 02 starts with **When Executed by Another Workflow**.
+- **Sub-workflows.** 01 calls 02 with the **Execute Workflow** node in *Run once for each item* mode. Each item is a **batch** of up to 8 emails (made by the *Make batches* Code node), and batches run one after another, oldest first, so a later batch can update a task an earlier one created. 02 starts with **When Executed by Another Workflow**.
   - **02 must be published.** When 01 runs for real, it runs the *published* version of 02. After changing 02, publish it again.
-  - 01's Execute Workflow node has **On Error → Continue**: one failing email doesn't stop the others. It isn't marked processed, so it's retried next run.
+  - **Error output.** *Process batches (02)* has **On Error → Continue (using error output)**: a failing batch leaves through its second output, *Split failed batches* turns it into single-email batches, and *Retry as single emails (02)* runs them. One bad email can't block the other seven. An email that still fails isn't marked processed, so it's retried on the next run.
+- **Batching.** Every `claude -p` call carries about 7–9K tokens of fixed overhead, so one call for 8 emails costs roughly 6× less than 8 calls (measured: 9,977 vs 63,462 tokens on 8 test emails, same decisions). Each email is cut to 6,000 characters, so a batch stays under about 12K tokens of email text. Claude returns one action per task, with `email_ids` listing the emails behind it (two emails about the same task become one action with the final state), plus `sender_is_person` per email.
 - **Data Tables** (*Overview → Data tables*): small tables stored inside n8n, which you can view and edit:
   - `n8n_email_tasks`: every task, with `kind` (calendar/list), `status` (active/cancelled) and the Google ids used to update it later
   - `n8n_processed_emails`: Gmail ids already read. This is how no email is read twice.
@@ -68,13 +69,23 @@ It's a separate process (started with n8n, see [04](04-autostart.md)) because n8
 
 The worst a malicious email can do is make Claude invent a wrong task in your calendar.
 
-**Usage.** Each new email is one Claude Sonnet 5.5 call (effort `medium`), counted against your Pro plan's limits. If you hit the limit, those emails fail and are retried on the next run. Emails from skipped senders and already-processed emails cost nothing.
+**Usage.** Each batch of up to 8 emails is one Claude Sonnet 5.5 call (effort `low`), counted against your Pro plan's limits. Measured on 68 real emails: **10 calls, about 2,300 tokens per email, about 5 s per call**. The one-email-per-call design needed roughly 12,000 tokens per email (an estimate from the fixed overhead, not a measurement). The bridge log (`logs/claude-bridge.log`) now shows the tokens of every call. Other savings: Gmail category filters, skipping bulk senders after 3 task-less emails, at most 40 relevant open tasks per call, emails cut to 6,000 characters. If you hit the limit, those batches fail and are retried on the next run (a failed batch is retried once as single emails first, which costs extra calls while the limit is active).
 
 ### Skipping senders
 
-After each email, *Count sender stats* updates the sender's row. A sender is skipped from then on when Claude says it **isn't a person** (no-reply, newsletter, store…) **and** its last **5** emails had **no tasks** (`SKIP_AFTER` in that node).
+After each batch, *Sender rows* updates one row per sender. A sender is skipped from then on when Claude says it **isn't a person** (no-reply, newsletter, store…) **and** its first **3** emails analysed had **no tasks** (`SKIP_AFTER` in that node). The check happens twice: 01 drops emails of already-skipped senders, and 02 (*Drop skipped senders*) drops them again after reading the table, so a sender that gets skipped in the middle of a big run stops costing tokens right away. (The first version only checked in 01, before the run, and analysed one noisy sender 28 times.)
+
+Gmail searches also exclude the **Promotions, Social and Forums** categories, so those emails never reach n8n.
 
 To un-skip someone: in `n8n_email_senders`, set `skip` to false **and** `emails_analyzed` to 0. Otherwise they're skipped again after the next email.
+
+### What counts as a task
+
+Claude is told to create tasks only for **obligations and commitments**: deadlines in courses and projects you're already in, meetings and events you were personally invited to, personal deadlines (library returns, payments, appointments), selection processes you've already applied to, and **automatic deadline alerts** from institutional systems (e-Disciplinas, library, GIP/FAPESP). **Generic invitations and announcements are ignored**, even with a deadline: open registrations for programs, workshops, talks, contests, surveys. A "mailing list / bulk mail" hint (from the `List-Id`, `List-Unsubscribe` and `Precedence` headers) is passed with each email. The rule is in the system prompt in *Build Claude request*; edit it there to change what counts. "When in doubt" cuts both ways on purpose: doubtful *generic invitations* are ignored, doubtful *deadlines addressed to you* are created. (A first version said "when in doubt, don't create" for everything, and Claude skipped a real FAPESP deadline alert. Testing found it.)
+
+### Testing changes on real emails without touching your Calendar
+
+Changing the prompt or the flow and "seeing what happens" would put wrong events in your Calendar, so changes were tested with a **shadow run**: a second n8n on a *copy* of the database (`VACUUM INTO` makes a consistent copy while n8n runs), with the same encryption key so the real Gmail credentials work (read-only), the **Calendar and Tasks nodes replaced by stubs**, and the processed-emails and senders tables emptied. Starting with an *empty* task list matters: otherwise Claude correctly says "already registered, nothing changed" and you can't tell whether the relevance rule works. Comparing what the shadow run *would create* with what the previous version had created is how the missing FAPESP alert was found. Everything stays in a throwaway folder.
 
 ## Setup (once)
 
@@ -104,8 +115,9 @@ Workflow files point to credentials by id, and ids are different on every n8n in
 
 ## Limits and known gaps
 
-- Emails longer than 15,000 characters are cut before going to Claude (mostly newsletters).
+- Emails longer than 6,000 characters are cut before going to Claude (mostly newsletters).
 - If a run fails halfway through an email (e.g. the Calendar event was created but saving it to the table failed), retrying that email can create a duplicate event.
-- Only tasks that are still active, and only the 200 most recently changed ones, are shown to Claude for matching.
+- Only active tasks are shown to Claude for matching: the 100 most recently changed, then only undated ones or those dated in the last 60 days or the future, at most 40. A very old task can therefore be duplicated if an email mentions it again.
+- An email that always makes Claude fail costs about 4 calls per run (2 HTTP tries for its batch, 2 more as a single email) until it ages out of the date window.
 - Data Tables are looked up by **name**, and n8n matches names by "contains". Don't create other tables whose names contain these three names.
 - Attachments aren't read, only the email text.
