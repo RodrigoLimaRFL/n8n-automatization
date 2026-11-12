@@ -10,12 +10,12 @@ use crate::clock::local_timestamp;
 use crate::model::LogLine;
 use crate::singleton::{self, Acquire};
 use crate::worker::{Command, Shared, Worker};
-use crate::{autostart, browser};
+use crate::{autostart, browser, diag, shell};
 use native_windows_gui as nwg;
 use options::{parse_args, Options};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tray::Tray;
 use window::MainWindow;
 
@@ -27,6 +27,12 @@ pub const WINDOW_TITLE: &str = "Assistente de Emails";
 const ICON_BYTES: &[u8] = include_bytes!("../../assets/icon.ico");
 const DEFAULT_BRIDGE_URL: &str = "http://127.0.0.1:5681";
 const BRIDGE_URL_ENV: &str = "ASSISTENTE_BRIDGE_URL";
+/// Tentativas de criar a janela e a bandeja: logo depois do logon o shell pode não estar pronto.
+const START_ATTEMPTS: u32 = 40;
+/// Pausa entre as tentativas de `START_ATTEMPTS`.
+const START_RETRY_DELAY: Duration = Duration::from_secs(3);
+/// Espera máxima pela barra de tarefas numa partida automática (`--minimizado`).
+const TASKBAR_WAIT: Duration = Duration::from_secs(120);
 /// Tempo máximo que o botão fica travado depois de um clique sem resposta do worker.
 const RUN_LOCK_MS: u64 = 5000;
 
@@ -161,16 +167,27 @@ impl App {
 /// cria janela + bandeja + worker e roda o laço de mensagens até "Sair".
 pub fn run() {
     let opts = parse_args(std::env::args().skip(1));
+    diag::log(&format!("Iniciando (minimizado: {}).", opts.minimized));
     let _single = match singleton::acquire(WINDOW_TITLE) {
-        Acquire::AlreadyRunning => return,
+        Acquire::AlreadyRunning => {
+            diag::log("Já existe outra instância em execução; encerrando.");
+            return;
+        }
         Acquire::First(s) => s,
     };
 
     // Controles clássicos (sem estilos visuais), como num formulário do VB6.
-    if nwg::init_common_controls().is_err() {
+    if let Err(e) = nwg::init_common_controls() {
+        diag::log(&format!("Falha ao iniciar os controles do Windows: {e}"));
         return;
     }
-    let Ok(app) = build_app(opts) else { return };
+    if opts.minimized {
+        wait_for_taskbar();
+    }
+    let Some(app) = build_with_retry(opts) else {
+        diag::log("Não foi possível criar a janela e a bandeja; encerrando.");
+        return;
+    };
     let app = Rc::new(app);
 
     let weak = Rc::downgrade(&app);
@@ -200,6 +217,44 @@ pub fn run() {
     nwg::dispatch_thread_events();
 
     nwg::unbind_event_handler(&handler);
+}
+
+/// Espera a barra de tarefas existir (até `TASKBAR_WAIT`); sem ela o ícone da bandeja não pode ser criado.
+fn wait_for_taskbar() {
+    let start = Instant::now();
+    while !shell::taskbar_ready() {
+        if start.elapsed() >= TASKBAR_WAIT {
+            diag::log("A barra de tarefas não apareceu a tempo; tentando mesmo assim.");
+            return;
+        }
+        std::thread::sleep(Duration::from_secs(1));
+    }
+    let waited = start.elapsed();
+    if waited >= Duration::from_secs(1) {
+        diag::log(&format!(
+            "Barra de tarefas pronta após {} s.",
+            waited.as_secs()
+        ));
+    }
+}
+
+/// Cria a janela e a bandeja, tentando de novo se o Windows ainda não estiver pronto.
+fn build_with_retry(opts: Options) -> Option<App> {
+    for attempt in 1..=START_ATTEMPTS {
+        match build_app(opts) {
+            Ok(app) => {
+                diag::log(&format!("Janela e bandeja criadas (tentativa {attempt})."));
+                return Some(app);
+            }
+            Err(e) => {
+                diag::log(&format!(
+                    "Falha ao criar a janela/bandeja (tentativa {attempt}/{START_ATTEMPTS}): {e}"
+                ));
+                std::thread::sleep(START_RETRY_DELAY);
+            }
+        }
+    }
+    None
 }
 
 fn build_app(opts: Options) -> Result<App, nwg::NwgError> {
