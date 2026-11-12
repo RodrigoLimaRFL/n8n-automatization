@@ -11,7 +11,7 @@ strings are in Brazilian Portuguese. The release exe is about 0.8 MB and idles a
 * **Progress bar** with "n de N emails lidos" below it (never shows more than N).
 * **Abrir Tarefas / Abrir Calendário**: opens Google Tasks / Calendar in the default browser.
 * **Registro**: small log box (bottom left) with the last 300 lines, from the bridge and from the app.
-* **Iniciar com o Windows** checkbox (`HKCU\...\Run`, value `AssistenteEmails`, starts with `--minimizado`).
+* **Iniciar com o Windows** checkbox: a Task Scheduler logon task named `Assistente de Emails` (10 s after logon, runs `<exe> --minimizado`). It is not the `Run` registry key, see *Install* below.
 * Closing the window hides it to the **tray**; the tray menu has Abrir, Processar agora, Sair.
 * Single instance: starting it again just brings the first window to the front.
 * Shows "Sem conexão com a ponte do Claude" when the bridge is down and recovers by itself.
@@ -41,7 +41,7 @@ one only depends on the ones above it in this list:
    ui/window       controls and updating them from a ViewModel
    ui/tray         tray icon and menu
    ui/options      command line parsing                           (pure)
- autostart, browser, singleton   independent Windows utilities
+ autostart (Task Scheduler), browser, shell (taskbar check), diag (app.log), singleton   independent Windows utilities
 ```
 
 The worker polls every 1 s while a run is active and every 3 s otherwise, and wakes the UI thread
@@ -61,6 +61,25 @@ Git bash equivalent: `export PATH="/c/msys64/mingw64/bin:$HOME/.cargo/bin:$PATH"
 The `native-windows-gui` features are the minimum that works: `image-decoder` is needed to load the
 `.ico` at run time even though the code compiles without it. Regenerate the icon with
 `node app/tools/make-icon.mjs`.
+
+## Install
+
+`app\install.cmd` builds, copies the exe to **`%USERPROFILE%\AssistenteEmails`**, registers the logon
+task (the app does it itself with `--ativar-inicializacao`) and starts the app through the task. Run it
+again to update.
+
+Two things to know, learned the hard way:
+
+* **Do not install into `%LOCALAPPDATA%`, and do not rely on `HKCU\...\Run`, when installing from
+  inside a packaged app** (the Claude desktop app is an MSIX package). What its shell writes to those
+  places lands in a private copy under `%LOCALAPPDATA%\Packages\<package>\LocalCache`, invisible to
+  Windows: the Run entry never fired, Task Manager did not list it and the scheduler answered "file
+  not found". The Task Scheduler is a system service, so its registrations are real from any context,
+  and `%USERPROFILE%\AssistenteEmails` is not redirected.
+* If the app does not appear after logon, read `%LOCALAPPDATA%\AssistenteEmails\app.log` (written by
+  the app when Windows starts it normally). It records each start, the wait for the taskbar and any
+  failure to create the window or tray icon. No new line after a boot means Windows did not start it:
+  check the task *Assistente de Emails* in Task Scheduler.
 
 ## Run
 
@@ -85,8 +104,8 @@ For development without touching the real services, run the mock bridge and poin
 | Workflows 00/01/02 end to end in a throwaway n8n (about 5 minutes, ports 5698/5693/5691/5699) | `node scripts/test/e2e/run.mjs` |
 | Look at the UI with fake data | mock bridge (above) |
 
-The tests never use ports 5678/5681 and never touch the Google accounts. The `autostart` test uses
-its own registry value name and removes it.
+The tests never use ports 5678/5681 and never touch the Google accounts. The `autostart` test registers a
+throwaway scheduled task with a unique name and removes it.
 
 ## Known limitations
 
