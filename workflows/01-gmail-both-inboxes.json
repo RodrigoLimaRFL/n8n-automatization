@@ -326,8 +326,8 @@
     },
     {
       "parameters": {
-        "content": "## How this works\n**Three triggers, one pipeline.** Only one fires per run:\n- **Every day at 07:00** and **When n8n starts or is published** both go through **Daily run due?**. It lets a run through only after 07:00 and only if today's run hasn't happened yet, so a missed 07:00 run happens as soon as n8n is back.\n- **Read emails on demand** (form): last N days, or all emails. Always runs.\n\n**Build Gmail search** turns `days` into `newer_than:Nd` (empty = everything). Each **Gmail** node runs it with its own credential and retries if the network isn't up yet.\n**Record run + clean up** marks today as done (daily runs only) in the workflow's static data.\n\n⚠️ Triggers and static data only work when the workflow is **Published**.\n\n**Then, for every email not seen before** (and not from a skipped sender), oldest first: **Make batches** groups them 8 at a time, and **Process batches (02)** runs workflow 02 once per batch: one Claude call for up to 8 emails. A failed batch goes out of the second output of that node and is retried as single emails. Gmail searches skip Promotions, Social and Forums. That branch sits above **Record run**, so it runs first; an email that still fails is retried on the next run.",
-        "height": 500,
+        "content": "## How this works\n**Three triggers, one pipeline.** Only one fires per run:\n- **Every day at 07:00** and **When n8n starts or is published** both go through **Daily run due?**. It lets a run through only after 07:00 and only if today's run hasn't happened yet, so a missed 07:00 run happens as soon as n8n is back.\n- **Read emails on demand** (form): last N days, or all emails. Always runs.\n\n**Build Gmail search** turns `days` into `newer_than:Nd` (empty = everything). Each **Gmail** node runs it with its own credential and retries if the network isn't up yet.\n**Record run + clean up** marks today as done (daily runs only) in the workflow's static data.\n\n⚠️ Triggers and static data only work when the workflow is **Published**.\n\n**Then, for every email not seen before** (and not from a skipped sender), oldest first: **Make batches** groups them 8 at a time, and **Process batches (02)** runs workflow 02 once per batch: one Claude call for up to 8 emails. A failed batch goes out of the second output of that node and is retried as single emails. Gmail searches skip Promotions, Social and Forums. That branch sits above **Record run**, so it runs first; an email that still fails is retried on the next run.\n\n**Progress events** (for the desktop app): the HTTP nodes **Progress: start** (after Build Gmail search), **Progress: total emails** (before the first batch) and **Progress: finish** (last, on every run) POST to the bridge `/event`. If the bridge is down they fail silently and the run continues.",
+        "height": 580,
         "width": 560
       },
       "id": "b1f6a0e2-0007-4c1a-9a10-000000000007",
@@ -526,7 +526,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// A batch that failed (bad email, timeout...) is retried as single emails,\n// so one bad email can't block the other seven.\nconst batches = $('Make batches').all();\nconst singles = [];\nfor (const item of $input.all()) {\n  const p = Array.isArray(item.pairedItem) ? item.pairedItem[0] : item.pairedItem;\n  const batch = batches[p && p.item];\n  if (!batch) continue;\n  for (const email of batch.json.emails) singles.push({ json: { emails: [email] } });\n}\nreturn singles;"
+        "jsCode": "// A batch that failed (bad email, timeout...) is retried as single emails,\n// so one bad email can't block the other seven. `retry` keeps the progress count from counting them twice.\nconst batches = $('Make batches').all();\nconst singles = [];\nfor (const item of $input.all()) {\n  const p = Array.isArray(item.pairedItem) ? item.pairedItem[0] : item.pairedItem;\n  const batch = batches[p && p.item];\n  if (!batch) continue;\n  for (const email of batch.json.emails) singles.push({ json: { emails: [email], retry: true } });\n}\nreturn singles;"
       },
       "id": "2af0fb56-24ac-4bfc-aef8-0a4d657b5780",
       "name": "Split failed batches",
@@ -568,6 +568,85 @@
         60
       ],
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5681/event",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event: 'start', days: $json.days, source: $json.source }) }}",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "id": "d387fdbf-11e5-45b6-afb8-2dd2252c7051",
+      "name": "Progress: start",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        -180
+      ],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5681/event",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event: 'total', total: $input.all().length }) }}",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "id": "f0ca88e8-26bb-494e-b425-7d9c885bab96",
+      "name": "Progress: total emails",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        -240
+      ],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Always returns exactly one item, even with zero emails, so 'Progress: finish' runs at the end of every run.\nreturn [{ json: { finished: true } }];"
+      },
+      "id": "b82b50bf-23f8-476e-a8b5-ad051dd24c68",
+      "name": "Run finished",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5681/event",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event: 'finish' }) }}",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "id": "8e50d8a0-84fe-4ae2-907d-dc28f3eae305",
+      "name": "Progress: finish",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1660,
+        560
+      ],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -607,6 +686,11 @@
     "Build Gmail search": {
       "main": [
         [
+          {
+            "node": "Progress: start",
+            "type": "main",
+            "index": 0
+          },
           {
             "node": "Personal: emails",
             "type": "main",
@@ -698,6 +782,11 @@
             "node": "Record run + clean up",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Run finished",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -739,6 +828,11 @@
       "main": [
         [
           {
+            "node": "Progress: total emails",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Make batches",
             "type": "main",
             "index": 0
@@ -774,6 +868,17 @@
         [
           {
             "node": "Retry as single emails (02)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run finished": {
+      "main": [
+        [
+          {
+            "node": "Progress: finish",
             "type": "main",
             "index": 0
           }

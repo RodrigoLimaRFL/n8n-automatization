@@ -55,6 +55,19 @@ Colors (Tomato/red is reserved for cancellations, Flamingo isn't used because it
 - **Switch in expression mode.** *What to do* sends each operation to one of 7 outputs using `["create_event", …].indexOf($json.op)`.
 - **`$('Node name').item`.** After a Google node, `$json` is Google's response (e.g. the new event `id`). The task's own data is still available from the node that produced it: `$('What to do').item.json.title`.
 
+### Progress events
+
+So the desktop app can show "n of N emails read", the workflows report to the bridge (`POST http://127.0.0.1:5681/event`, contract in [app/API.md](../app/API.md)) with plain **HTTP Request** nodes (timeout 3 s, *On Error → Continue*, no retries: if the bridge is down they fail silently and the run is unchanged):
+
+| node | workflow | sends | when |
+|---|---|---|---|
+| **Progress: start** | 01 | `{event:'start', days, source}` | right after *Build Gmail search* |
+| **Progress: total emails** | 01 | `{event:'total', total:N}` | after *Oldest first*, before *Make batches*, only if there is at least one email to process |
+| **Progress: emails read** | 02 | `{event:'progress', count:n}` | once per batch, right after *Merge fetched emails* |
+| **Progress: finish** | 01 | `{event:'finish'}` | last, on every run, even with zero emails (fed by the *Run finished* Code node, which always returns one item) |
+
+Order matters: n8n (execution order v1) runs the branches of one output one after another, in connection order, so *Progress: start* and *Progress: total emails* are connected first, and *Run finished* is the third (lowest) branch of *Combine inboxes*, so it runs after the processing branch. A batch that fails and is retried as single emails reports its count again, so `progress` can add up to more than `total`; the bridge caps `done`. If a run crashes in the middle there is no `finish`; the bridge marks the run interrupted after 20 minutes without events. After changing 01/02, import and publish them again. The test in `scripts/test/e2e/` checks all of this.
+
 ### Why a "Claude bridge"?
 
 Your Claude **Pro** plan can't be used through an API key: the API is billed separately. What Pro *does* include is **Claude Code**, which has a non-interactive mode, `claude -p`. [scripts/claude-bridge.mjs](../scripts/claude-bridge.mjs) is a tiny local server that n8n calls with its **HTTP Request** node, and that runs `claude -p` for each email.

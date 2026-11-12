@@ -29,6 +29,7 @@ Then follow **[docs/02-connect-gmail.md](docs/02-connect-gmail.md)** to connect 
 | `npm run stop` | Stops n8n (port 5678) and the Claude bridge (port 5681) |
 | `npm run restart` | Stops both and starts them again in the background (after editing `.env`) |
 | `npm run bridge` | Runs the Claude bridge in this terminal (normally started with n8n) |
+| `npm test` | Bridge unit tests (the app and the e2e harness have their own, see app/README.md) |
 | `npm run link` | Links workflow files to your credentials by name, then imports them |
 | `npm run autostart:install` / `autostart:remove` | Start n8n hidden at Windows logon, or stop doing so ([docs/04](docs/04-autostart.md)) |
 
@@ -40,7 +41,8 @@ Then follow **[docs/02-connect-gmail.md](docs/02-connect-gmail.md)** to connect 
 .env / .env.example   config (env vars); .env holds the encryption key and is gitignored
 .n8n/                 n8n's live data: SQLite DB, encrypted credentials, executions (gitignored)
 workflows/            workflow JSON, the version-controlled source of truth
-scripts/              start/stop/autostart, the Claude bridge, credential linking
+scripts/              start/stop/autostart, the Claude bridge (+ status API), credential linking, tests
+app/                  native Windows app (Rust): status, manual run, tray. See app/README.md
 docs/                 learning notes
 ```
 
@@ -51,6 +53,7 @@ docs/                 learning notes
 3. [Daily schedule + on-demand form](docs/03-schedule-and-form.md): multiple triggers, Gmail search, publishing
 4. [Start n8n automatically with Windows](docs/04-autostart.md): Task Scheduler, background logs
 5. [Claude turns emails into tasks](docs/05-email-to-tasks.md): sub-workflows, Data Tables, structured output, the Claude bridge, **setup steps**
+6. [Desktop app](app/README.md) and its [control API](app/API.md): native Windows app in Rust that shows progress and starts runs
 
 ## Roadmap
 
@@ -61,6 +64,7 @@ docs/                 learning notes
 - [x] n8n starts automatically at Windows logon
 - [x] Claude reads each new email once and creates/updates/cancels Calendar events and Google Tasks
 - [x] Senders that aren't people and never send tasks are skipped
+- [x] Native Windows app (Rust, tray, autostart) with progress bar, manual run and log
 
 ## Notes
 

@@ -1,0 +1,29 @@
+[package]
+name = "assistente-emails"
+version = "0.1.0"
+edition = "2021"
+description = "Aplicativo do Windows para acompanhar e acionar o processamento de emails (n8n + Claude)"
+publish = false
+
+[lib]
+name = "assistente_emails"
+path = "src/lib.rs"
+
+[[bin]]
+name = "assistente-emails"
+path = "src/main.rs"
+
+[dependencies]
+native-windows-gui = { version = "1.0.13", default-features = false, features = ["progress-bar", "textbox", "tray-notification", "menu", "notice", "number-select", "frame", "cursor", "image-decoder", "animation-timer"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2", default-features = false }
+winreg = "0.52"
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_System_SystemInformation", "Win32_Security", "Win32_UI_Input_KeyboardAndMouse"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

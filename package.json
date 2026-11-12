@@ -15,7 +15,8 @@
     "autostart:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-autostart.ps1",
     "autostart:remove": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-autostart.ps1",
     "bridge": "node --env-file=.env scripts/claude-bridge.mjs",
-    "link": "node scripts/link-credentials.mjs"
+    "link": "node scripts/link-credentials.mjs",
+    "test": "node --test \"scripts/test/*.test.mjs\""
   },
   "dependencies": {
     "n8n": "2.47.4"

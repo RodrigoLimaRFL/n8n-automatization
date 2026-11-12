@@ -1287,7 +1287,7 @@
     },
     {
       "parameters": {
-        "content": "## 02 · Batch of emails → tasks (called by 01, up to 8 emails per call)\n1. **One item per email** → **Gmail: full email** (right account) → **Merge fetched emails** (waits for both accounts, so a batch is analysed in ONE call) → **Clean email** (plain text, cut at 6,000 characters, mailing-list hint).\n2. **Senders** (Data Table, read once) → **Drop skipped senders**: senders marked \"skip\" never reach Claude, even if they got skipped earlier in the same run.\n3. **Open tasks** (up to 40 relevant ones) + the whole batch → **Build Claude request** → **Ask Claude**: ONE call to the local Claude bridge, which runs Claude Code with your plan and returns JSON that follows a schema.\n4. **Plan actions** → **What to do**: one item per operation, to Google Calendar (dated, colored by type) or Google Tasks (undated). Cancelled → red event or \"CANCELADA –\" title.\n5. Lower branch, **after** the actions: mark the emails processed and update the senders (a non-person sender with 3 emails and no tasks is skipped from then on).\n\nGeneric invitations (programs, workshops, talks open to everyone) are NOT tasks: see the relevance rule in the system prompt.\n⚠️ Must be **Published**: when 01 runs for real, it calls the published version of this workflow.",
+        "content": "## 02 · Batch of emails → tasks (called by 01, up to 8 emails per call)\n1. **One item per email** → **Gmail: full email** (right account) → **Merge fetched emails** (waits for both accounts, so a batch is analysed in ONE call) → **Clean email** (plain text, cut at 6,000 characters, mailing-list hint).\n2. **Senders** (Data Table, read once) → **Drop skipped senders**: senders marked \"skip\" never reach Claude, even if they got skipped earlier in the same run.\n3. **Open tasks** (up to 40 relevant ones) + the whole batch → **Build Claude request** → **Ask Claude**: ONE call to the local Claude bridge, which runs Claude Code with your plan and returns JSON that follows a schema.\n4. **Plan actions** → **What to do**: one item per operation, to Google Calendar (dated, colored by type) or Google Tasks (undated). Cancelled → red event or \"CANCELADA –\" title.\n5. Lower branch, **after** the actions: mark the emails processed and update the senders (a non-person sender with 3 emails and no tasks is skipped from then on).\n\nGeneric invitations (programs, workshops, talks open to everyone) are NOT tasks: see the relevance rule in the system prompt.\n⚠️ Must be **Published**: when 01 runs for real, it calls the published version of this workflow.\n**Progress: emails read** (after the Gmail fetch, once per batch) tells the Claude bridge how many emails were read, for the desktop app. If the bridge is down it fails silently.",
         "width": 960,
         "height": 380
       },
@@ -1626,6 +1626,28 @@
         880,
         300
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5681/event",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event: 'progress', count: $('Batch from 01').first().json.retry ? 0 : $('One item per email').all().length }) }}",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "id": "42dbbeee-fc25-4463-956a-ac4bd96da319",
+      "name": "Progress: emails read",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        120
+      ],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -1950,6 +1972,11 @@
     "Merge fetched emails": {
       "main": [
         [
+          {
+            "node": "Progress: emails read",
+            "type": "main",
+            "index": 0
+          },
           {
             "node": "Clean email",
             "type": "main",
