@@ -36,6 +36,12 @@ pub struct LastRun {
     pub range_from: Option<String>,
     pub range_to: String,
     pub emails_read: u32,
+    /// Itens novos criados no Google Calendar nesta execução (pontes antigas omitem: 0).
+    #[serde(default)]
+    pub calendar_added: u32,
+    /// Itens novos criados no Google Tasks nesta execução (pontes antigas omitem: 0).
+    #[serde(default)]
+    pub tasks_added: u32,
     pub ok: bool,
 }
 
@@ -80,4 +86,17 @@ pub struct Status {
     pub services: Services,
     #[serde(default)]
     pub server_time: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn old_bridge_without_counts_defaults_to_zero() {
+        let json = r#"{"started_at":"a","finished_at":"b","days":5,"range_from":null,
+            "range_to":"2026-11-12","emails_read":3,"ok":true}"#;
+        let last: LastRun = serde_json::from_str(json).unwrap();
+        assert_eq!((last.calendar_added, last.tasks_added), (0, 0));
+    }
 }

@@ -146,12 +146,12 @@ impl App {
             E::OnMousePress(nwg::MousePressEvent::MousePressLeftUp)
                 if handle == self.tray.icon.handle =>
             {
-                self.w.show()
+                self.w.bring_to_front()
             }
             E::OnContextMenu if handle == self.tray.icon.handle => self.tray.show_menu(),
             E::OnMenuItemSelected => {
                 if handle == self.tray.open.handle {
-                    self.w.show();
+                    self.w.bring_to_front();
                 } else if handle == self.tray.run.handle {
                     self.run_now();
                 } else if handle == self.tray.quit.handle {

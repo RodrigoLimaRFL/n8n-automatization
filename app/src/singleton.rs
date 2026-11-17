@@ -1,14 +1,16 @@
 //! Garante uma única instância: um mutex nomeado. Se já existe uma, traz a janela da primeira para a frente.
 
+use crate::shell;
 use std::ptr::null;
 use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS};
 use windows_sys::Win32::System::Threading::CreateMutexW;
-use windows_sys::Win32::UI::WindowsAndMessaging::{
-    FindWindowW, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
-};
+use windows_sys::Win32::UI::WindowsAndMessaging::FindWindowW;
 
 /// Nome do mutex da instância única.
 const MUTEX_NAME: &str = r"Local\AssistenteEmails-single-instance";
+
+/// Variável de ambiente que separa instâncias de desenvolvimento da instalada.
+const INSTANCE_ENV: &str = "ASSISTENTE_INSTANCE";
 
 /// Mantém o mutex enquanto estiver vivo.
 pub struct Singleton {
@@ -36,7 +38,13 @@ pub enum Acquire {
 
 /// `window_title` é o título exato da janela principal, usado para encontrar a primeira instância.
 pub fn acquire(window_title: &str) -> Acquire {
-    acquire_named(MUTEX_NAME, window_title)
+    // Só para desenvolvimento/testes: `ASSISTENTE_INSTANCE=xyz` roda uma cópia paralela sem
+    // conflitar com o app instalado.
+    let name = match std::env::var(INSTANCE_ENV) {
+        Ok(suffix) if !suffix.is_empty() => format!("{MUTEX_NAME}-{suffix}"),
+        _ => MUTEX_NAME.to_string(),
+    };
+    acquire_named(&name, window_title)
 }
 
 /// Texto UTF-16 terminado em zero, como o Windows espera.
@@ -69,17 +77,10 @@ fn acquire_named(mutex_name: &str, window_title: &str) -> Acquire {
 /// Procura a janela pelo título exato e a traz para a frente (se existir).
 fn show_window(title: &str) {
     let title = wide(title);
-    // SAFETY: `title` é UTF-16 terminado em zero e vive durante as chamadas; a classe nula
-    // significa "qualquer classe". O `hwnd` é verificado antes de ser usado e as funções
-    // de janela aceitam handles que deixaram de existir (apenas falham).
-    unsafe {
-        let hwnd = FindWindowW(null(), title.as_ptr());
-        if !hwnd.is_null() {
-            ShowWindow(hwnd, SW_SHOW);
-            ShowWindow(hwnd, SW_RESTORE);
-            SetForegroundWindow(hwnd);
-        }
-    }
+    // SAFETY: `title` é UTF-16 terminado em zero e vive durante a chamada; a classe nula
+    // significa "qualquer classe".
+    let hwnd = unsafe { FindWindowW(null(), title.as_ptr()) };
+    shell::bring_to_front(hwnd as isize);
 }
 
 #[cfg(test)]

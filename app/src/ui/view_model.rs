@@ -91,10 +91,7 @@ fn last_run_lines(status: Option<&Status>) -> [String; 3] {
             [
                 format!("Data e hora: {}{suffix}", format::last_run_datetime(last)),
                 format!("Período analisado: {}", format::period_text(last)),
-                format!(
-                    "Emails lidos: {}{suffix}",
-                    format::emails_read_text(last.emails_read)
-                ),
+                format::emails_line(last),
             ]
         }
     }
@@ -113,6 +110,8 @@ mod tests {
             range_from: Some("2026-11-07".into()),
             range_to: "2026-11-12".into(),
             emails_read: 68,
+            calendar_added: 3,
+            tasks_added: 2,
             ok,
         }
     }
@@ -144,7 +143,10 @@ mod tests {
         let vm = build(Some(&st), false);
         assert_eq!(vm.last_run_lines[0], "Data e hora: 12/11/2026 10:07");
         assert!(vm.last_run_lines[1].starts_with("Período analisado: "));
-        assert_eq!(vm.last_run_lines[2], "Emails lidos: 68 emails");
+        assert_eq!(
+            vm.last_run_lines[2],
+            "Emails lidos: 68 emails   Na agenda: 3   Nas tasks: 2"
+        );
         assert_eq!(vm.progress_label, MSG_IDLE);
         assert_eq!(vm.progress_percent, 0);
         assert!(vm.can_run);

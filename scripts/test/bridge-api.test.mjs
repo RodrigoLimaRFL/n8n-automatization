@@ -194,6 +194,26 @@ test('POST /event drives /status; unknown events are 400', async () => {
   assert.equal(s.last_run.days, 3);
 });
 
+test('POST /event items: accumulates, validates, shows in last_run', async () => {
+  await reset();
+  assert.equal((await post('/event', { event: 'items', calendar: 1, tasks: 1 })).status, 200);
+  const before = (await getStatus()).log.length;
+  await post('/event', { event: 'start', days: 1, source: 'form' });
+  await post('/event', { event: 'items', calendar: 2, tasks: 1 });
+  await post('/event', { event: 'items', calendar: 1, tasks: 0 });
+  assert.equal((await post('/event', { event: 'items', calendar: -1, tasks: 0 })).status, 400);
+  assert.equal((await post('/event', { event: 'items', calendar: 1 })).status, 400);
+  await post('/event', { event: 'finish' });
+  const s = await getStatus();
+  assert.equal(s.last_run.calendar_added, 3);
+  assert.equal(s.last_run.tasks_added, 1);
+  assert.deepEqual(s.log.map((l) => l.msg).slice(before + 1), [
+    'Adicionado: 2 na agenda, 1 nas tasks',
+    'Adicionado: 1 na agenda',
+    'Execução concluída: 0 emails lidos, 3 na agenda, 1 nas tasks',
+  ]);
+});
+
 test('GET /status?after=N filters the log and reports n8n health', async () => {
   await reset();
   n8nState.healthy = false;

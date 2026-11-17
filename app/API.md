@@ -29,9 +29,11 @@ All bodies are JSON (`content-type: application/json`). Requests that carry an `
     "range_from": "2026-11-07",         // null when days = 0
     "range_to":   "2026-11-12",
     "emails_read": 68,
+    "calendar_added": 3,                // items put in Google Calendar during the run (0 if none)
+    "tasks_added": 2,                   // items put in Google Tasks during the run (0 if none)
     "ok": true
   },
-  "log": [ { "seq": 41, "ts": "2026-11-12T10:07:41-03:00", "level": "info", "msg": "Execução concluída: 68 emails lidos" } ],
+  "log": [ { "seq": 41, "ts": "2026-11-12T10:07:41-03:00", "level": "info", "msg": "Execução concluída: 68 emails lidos, 3 na agenda, 2 nas tasks" } ],
   "services": { "bridge": true, "n8n": true },   // n8n = bridge could reach http://localhost:5678/healthz
   "server_time": "2026-11-12T10:08:00-03:00"
 }
@@ -66,17 +68,19 @@ Submits the n8n form (`http://localhost:5678/form/<webhookId>`, fields `field-0`
 | `{ "event": "start", "days": 5, "source": "schedule" \| "catch-up" \| "form" }` (`schedule` and `catch-up` both become `run.source: "daily"`) | a run began (workflow 01, after the date range is known). If the bridge already started it through `/run`, it keeps `source: "manual"`. |
 | `{ "event": "total", "total": 78 }` | number of emails that will be processed this run |
 | `{ "event": "progress", "count": 8 }` | `count` more emails were read (workflow 02, once per batch). `done` is capped at `total`. `count: 0` (a batch retried as single emails, already counted) is accepted and ignored: no change, no log line. |
+| `{ "event": "items", "calendar": 2, "tasks": 1 }` | newly created items of one batch (workflow 02, after the Google calls): both integers >= 0, added to the counters of the current run (reset by `start`). Updates/cancellations are not counted. Ignored (200, no log line) without a run; 400 for invalid fields. |
 | `{ "event": "finish" }` | the run ended: `last_run` is built from the run state, `state` becomes `idle` |
 
 Response 200 `{ "ok": true }`; 400 on an unknown event or invalid fields. A `start` while a run is
-already `running` replaces it. `progress`/`total`/`finish` without a run are ignored (200).
+already `running` replaces it. `progress`/`total`/`items`/`finish` without a run are ignored (200).
 
 Every event also appends a Portuguese line to the log, e.g. `Início: últimos 5 dias`,
-`78 emails para processar`, `Execução concluída: 68 emails lidos`.
+`78 emails para processar`, `Adicionado: 2 na agenda, 1 nas tasks` (a part that is 0 is omitted), `Execução concluída: 68 emails lidos`
+(extended when something was added: `Execução concluída: 68 emails lidos, 3 na agenda, 2 nas tasks`).
 Claude errors seen by the bridge (for example "You've hit your session limit") also add a `warn`
 line: `Limite de uso do Claude atingido. As próximas tentativas ocorrem na próxima execução.`
 
 ## Persistence
 
-`logs/run-status.json` (gitignored folder `logs/`): `last_run`, the log lines and the last `seq`.
+`logs/run-status.json` (gitignored folder `logs/`): `last_run`, the log lines and the last `seq`. Snapshots written before `calendar_added`/`tasks_added` existed load with both as 0.
 `run` is not persisted: after a bridge restart `state` is `idle`.

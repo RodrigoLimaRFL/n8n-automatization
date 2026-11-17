@@ -13,7 +13,15 @@ call "%~dp0build.cmd" || exit /b 1
 
 taskkill /im assistente-emails.exe /f >nul 2>&1
 if not exist "%DEST%" mkdir "%DEST%"
-copy /y "%~dp0target\release\assistente-emails.exe" "%DEST%\assistente-emails.exe" >nul || exit /b 1
+rem O processo encerrado pode levar alguns segundos para liberar o exe: tenta copiar ate 10 vezes.
+set /a TRIES=0
+:copy
+copy /y "%~dp0target\release\assistente-emails.exe" "%DEST%\assistente-emails.exe" >nul 2>&1 && goto copied
+set /a TRIES+=1
+if %TRIES% geq 10 (echo Nao foi possivel substituir o exe: ele ainda esta em uso. & exit /b 1)
+ping -n 2 127.0.0.1 >nul
+goto copy
+:copied
 
 rem Registra a tarefa de logon (o proprio app faz isso) e encerra essa instancia temporaria.
 start "" "%DEST%\assistente-emails.exe" --ativar-inicializacao --minimizado

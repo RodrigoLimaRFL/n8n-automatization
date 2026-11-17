@@ -321,10 +321,11 @@ impl MainWindow {
         *self.shown.borrow_mut() = None;
     }
 
-    pub fn show(&self) {
-        self.window.set_visible(true);
-        self.window.restore();
-        self.window.set_focus();
+    /// Mostra a janela (escondida, minimizada ou atrás de outras) em primeiro plano e com foco.
+    pub fn bring_to_front(&self) {
+        if let Some(hwnd) = self.window.handle.hwnd() {
+            crate::shell::bring_to_front(hwnd as isize);
+        }
     }
 
     pub fn hide(&self) {

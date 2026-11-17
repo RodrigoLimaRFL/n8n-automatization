@@ -6,13 +6,13 @@ strings are in Brazilian Portuguese. The release exe is about 0.8 MB and idles a
 
 ## Features
 
-* **Última execução**: date/time, analysed period and number of emails read in the last run.
+* **Última execução**: date/time, analysed period and number of emails read in the last run, plus how many items that run added to the calendar and to Tasks (`Emails lidos: 68 emails   Na agenda: 3   Nas tasks: 2`; the two counts are 0 with an older bridge).
 * **Processar agora**: "Analisar os últimos N dias" (1 to 365) or "Todos os emails" (sends `days = 0`).
 * **Progress bar** with "n de N emails lidos" below it (never shows more than N).
 * **Abrir Tarefas / Abrir Calendário**: opens Google Tasks / Calendar in the default browser.
 * **Registro**: small log box (bottom left) with the last 300 lines, from the bridge and from the app.
 * **Iniciar com o Windows** checkbox: a Task Scheduler logon task named `Assistente de Emails` (10 s after logon, runs `<exe> --minimizado`). It is not the `Run` registry key, see *Install* below.
-* Closing the window hides it to the **tray**; the tray menu has Abrir, Processar agora, Sair.
+* Closing the window hides it to the **tray**; the tray menu has Abrir, Processar agora, Sair. A left click on the tray icon (or Abrir) shows the window and brings it to the foreground with focus, also when it is minimized or behind other windows (`shell::bring_to_front`: restore/show, then `SetForegroundWindow` while attached to the foreground thread's input, because Windows refuses it to background processes otherwise).
 * Single instance: starting it again just brings the first window to the front.
 * Shows "Sem conexão com a ponte do Claude" when the bridge is down and recovers by itself.
 
@@ -88,6 +88,7 @@ assistente-emails.exe                       # normal start
 assistente-emails.exe --minimizado          # start hidden in the tray (what autostart uses)
 assistente-emails.exe --ativar-inicializacao   # also turn "Iniciar com o Windows" on, once
 set ASSISTENTE_BRIDGE_URL=http://127.0.0.1:5682   # bridge address (default http://127.0.0.1:5681)
+set ASSISTENTE_INSTANCE=dev                        # development only: separate single-instance mutex, to run beside the installed app
 ```
 
 For development without touching the real services, run the mock bridge and point the app at it:

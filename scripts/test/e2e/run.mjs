@@ -27,13 +27,14 @@ const webhook = (p, position) => ({ parameters: { httpMethod: 'POST', path: p, r
 const post = async (p, body = {}) => { const r = await fetch(`http://127.0.0.1:${PORT}/webhook/${p}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); return { status: r.status, body: await r.text() }; };
 
 // Test copies of 02 and 01 (one pair per event port, so scenario (d) can point at a dead port).
-function build(tag, eventPort) {
+function build(tag, eventPort, failCalendar = false) {
   const url = (n) => { if (n.parameters?.url) n.parameters.url = n.parameters.url.replace('127.0.0.1:5681/event', `127.0.0.1:${eventPort}/event`).replace('127.0.0.1:5681/ask', `127.0.0.1:${BRIDGE_PORT}/ask`); };
   const wf2 = read('02-email-to-tasks.json');
   wf2.id = 'emailToTasks' + tag; wf2.name += ' ' + tag;
   for (const n of wf2.nodes) {
     if (n.type === 'n8n-nodes-base.gmail') stub(n, "return { json: { id: $json.id, subject: $json.subject, text: 'Corpo do email: ' + $json.subject, from: { value: [{ address: $json.sender, name: 'Remetente' }] }, date: $json.receivedAt, headers: /LIST/.test($json.subject) ? { 'list-id': 'grad-l' } : {} } };");
-    if (n.type === 'n8n-nodes-base.googleCalendar') stub(n, `return { json: { id: 'evt-' + Math.random().toString(36).slice(2, 8), node: ${JSON.stringify(n.name)}, got: $('What to do').item.json } };`);
+    if (failCalendar && n.name === 'Calendar: create event') stub(n, "throw new Error('simulated Google failure');");
+    else if (n.type === 'n8n-nodes-base.googleCalendar') stub(n, `return { json: { id: 'evt-' + Math.random().toString(36).slice(2, 8), node: ${JSON.stringify(n.name)}, got: $('What to do').item.json } };`);
     if (n.type === 'n8n-nodes-base.googleTasks') stub(n, `return { json: { id: 'gt-' + Math.random().toString(36).slice(2, 8), node: ${JSON.stringify(n.name)} } };`);
     url(n);
   }
@@ -66,12 +67,12 @@ const reader = { id: 'readTables000001', name: 'read', nodes: [webhook('read', [
 // ── assertions ──
 let failures = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '  ' + detail}`); if (!ok) failures++; };
-const fmt = (evs) => evs.map((e) => e.event === 'start' ? `start(days=${e.days},source=${e.source})` : e.event === 'total' ? `total(${e.total})` : e.event === 'progress' ? `progress(${e.count})` : e.event).join(', ');
+const fmt = (evs) => evs.map((e) => e.event === 'start' ? `start(days=${e.days},source=${e.source})` : e.event === 'total' ? `total(${e.total})` : e.event === 'progress' ? `progress(${e.count})` : e.event === 'items' ? `items(${e.calendar},${e.tasks})` : e.event).join(', ');
 const mk = (list) => list.map(([id, addr, subj], k) => ({ id, From: `Fulano <${addr}>`, Subject: subj, snippet: '', internalDate: String(Date.parse('2026-11-10T12:00:00Z') + k * 60000), labels: [] }));
 const callRun = (tag, emails) => post('run01' + tag, { emails: mk(emails.filter((e) => !e[0].startsWith('u'))), universityEmails: mk(emails.filter((e) => e[0].startsWith('u'))) });
 
 const taskWf = [];
-for (const [tag, port] of [['', BRIDGE_PORT], ['Down', DEAD_PORT]]) { const { wf1, wf2 } = build(tag, port); taskWf.push([`02${tag}.json`, wf2], [`01${tag}.json`, wf1]); }
+for (const [tag, port, failCal] of [['', BRIDGE_PORT, false], ['Down', DEAD_PORT, false], ['Gfail', BRIDGE_PORT, true]]) { const { wf1, wf2 } = build(tag, port, failCal); taskWf.push([`02${tag}.json`, wf2], [`01${tag}.json`, wf1]); }
 
 const killTree = (p) => { try { if (process.platform === 'win32') execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); else p.kill(); } catch {} };
 let server, recorder;
@@ -101,7 +102,7 @@ try {
   // (a) 11 mixed emails -> 2 batches (8 + 3)
   const a = await scenario('a: 11 emails, 2 batches', '', [['e1', 'prof@uni.br', 'Prova FAKE:CREATE_EVENT'], ['u2', 'prof@uni.br', 'Leitura FAKE:CREATE_LIST'], ['u3', 'secretaria@uni.br', 'Matricula FAKE:CREATE_ALLDAY'], ['n1', 'news@loja.com', 'Oferta FAKE:NONE'], ['n2', 'news@loja.com', 'Oferta FAKE:NONE'], ['n3', 'news@loja.com', 'Oferta FAKE:NONE'], ['e4', 'camila@uni.br', 'Apresentacao FAKE:SAME'], ['u5', 'camila@uni.br', 'Apresentacao corrigida FAKE:SAME'], ['n4', 'news@loja.com', 'Oferta FAKE:NONE'], ['e6', 'grad@uni.br', 'LIST Divulgacao FAKE:NONE'], ['e7', 'colega@gmail.com', 'Oi FAKE:NONE']]);
   check('a: HTTP 200', a.res.status === 200, a.res.body.slice(0, 200));
-  check('a: sequence start, total(11), progress(8), progress(3), finish', fmt(a.evs) === 'start(days=3,source=form), total(11), progress(8), progress(3), finish', fmt(a.evs));
+  check('a: sequence start, total(11), progress(8), progress(3), finish (items events aside)', fmt(a.evs.filter((x) => x.event !== 'items')) === 'start(days=3,source=form), total(11), progress(8), progress(3), finish', fmt(a.evs));
   check('a: progress sums to total', a.evs.filter((e) => e.event === 'progress').reduce((s, e) => s + e.count, 0) === 11);
   check('a: finish is the last event, after all progress', a.evs.at(-1)?.event === 'finish');
 
@@ -120,6 +121,24 @@ try {
   check('c: sequence start, total(4), progress(4) for the batch, then progress(0) x4 (retries are not counted twice), finish', fmt(c.evs) === 'start(days=3,source=form), total(4), progress(4), progress(0), progress(0), progress(0), progress(0), finish', fmt(c.evs));
   const cSum = c.evs.filter((e) => e.event === 'progress').reduce((s, e) => s + e.count, 0);
   check('c: progress adds up to the total (4), not more', cSum === 4, String(cSum));
+
+  // items events: newly created calendar events / list tasks only, summed over batches
+  const sumItems = (evs, k) => evs.filter((e) => e.event === 'items').reduce((s, e) => s + e[k], 0);
+  // (a) creates: Prova (event), Leitura (list), Matricula (all-day event), Apresentacao x2 merged into ONE event
+  check('a: items add up to 3 calendar + 1 task', sumItems(a.evs, 'calendar') === 3 && sumItems(a.evs, 'tasks') === 1, fmt(a.evs));
+  check('a: items events come before finish and carry valid integers', a.evs.filter((e) => e.event === 'items').every((e) => Number.isInteger(e.calendar) && Number.isInteger(e.tasks) && e.calendar >= 0 && e.tasks >= 0 && a.evs.indexOf(e) < a.evs.length - 1));
+  check('b/b2: no items events when nothing is created', !b.evs.concat(b2.evs).some((e) => e.event === 'items'));
+  check('c: batches that create nothing add 0 items', sumItems(c.evs, 'calendar') === 0 && sumItems(c.evs, 'tasks') === 0, fmt(c.evs));
+
+  // (c2) failing batch (one email makes Claude fail) is retried as singles: items counted once, from the retries only
+  const c2 = await scenario('c2: failing batch with a creatable email', '', [['f1', 'prof@uni.br', 'Prova F FAKE:CREATE_EVENT'], ['f2', 'prof@uni.br', 'Lista F FAKE:CREATE_LIST'], ['f3', 'estranho@x.com', 'Quebra F FAKE:FAIL']]);
+  check('c2: HTTP 200', c2.res.status === 200, c2.res.body.slice(0, 200));
+  check('c2: items counted once (1 calendar, 1 task), none from the failed batch call', sumItems(c2.evs, 'calendar') === 1 && sumItems(c2.evs, 'tasks') === 1, fmt(c2.evs));
+
+  // (e) Google call fails for a batch: that batch must not be reported. The batch fails at Calendar (first branch),
+  // is retried as singles: g1 fails again (nothing), g2 (list task) succeeds -> exactly items(0,1), not items(1,1)/(0,2)
+  const e = await scenario('e: Google Calendar fails', 'Gfail', [['g1', 'prof@uni.br', 'Prova G FAKE:CREATE_EVENT'], ['g2', 'prof@uni.br', 'Lista G FAKE:CREATE_LIST']]);
+  check('e: failed batch not reported; only the retried list task counts (0 calendar, 1 task)', sumItems(e.evs, 'calendar') === 0 && sumItems(e.evs, 'tasks') === 1, fmt(e.evs));
 
   // (d) bridge unreachable (event URL -> closed port)
   const before = recorder.events.length;

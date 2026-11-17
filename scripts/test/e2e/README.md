@@ -28,6 +28,7 @@ Scenarios (each prints PASS/FAIL):
 | b2 | only emails that were already processed | `start, finish` |
 | c | one failing email in a batch of 4 (falls back to single emails) | `start, total(4), progress(4), progress(0) x4, finish` |
 | d | bridge unreachable | run completes, tables are written, no events |
+| items | `items(calendar,tasks)` events: (a) sums to 3 + 1, (c2) failing batch counts only the retried singles, (e) Google Calendar failure: the failed batch is not reported |
 
 Scenario (c) note: the failed batch already reported `progress(4)` (the Gmail fetch happened). Workflow 01
 marks the retried single emails with `retry: true`, and workflow 02 then reports `progress(0)` for them,

@@ -42,6 +42,11 @@ export const emailCount = (n) => `${n} ${n === 1 ? 'email' : 'emails'}`;
 
 export const emailsRead = (n) => `${n} ${n === 1 ? 'email lido' : 'emails lidos'}`;
 
+/** ["2 na agenda", "1 nas tasks"], leaving out the parts that are 0. */
+export function describeItems({ calendar, tasks }, calendarLabel, tasksLabel) {
+  return [calendar > 0 && `${calendar} ${calendarLabel}`, tasks > 0 && `${tasks} ${tasksLabel}`].filter(Boolean);
+}
+
 export function describeDays(days) {
   if (days === 0) return 'todos os emails';
   return days === 1 ? 'último dia' : `últimos ${days} dias`;
@@ -61,10 +66,14 @@ export function createRunStatus({
   logLimit = LOG_LIMIT,
   interruptedAfterMs = INTERRUPTED_AFTER_MS,
 }) {
-  let lastRun = snapshot?.last_run ?? null;
+  // Snapshots written before the item counters existed lack the two fields.
+  let lastRun = snapshot?.last_run
+    ? { ...snapshot.last_run, calendar_added: snapshot.last_run.calendar_added ?? 0, tasks_added: snapshot.last_run.tasks_added ?? 0 }
+    : null;
   let log = Array.isArray(snapshot?.log) ? snapshot.log.slice(-logLimit) : [];
   let seq = Math.max(Number(snapshot?.seq) || 0, log.at(-1)?.seq ?? 0);
   let run = null;          // { source, days, started_at, total, done }
+  let counters = { calendar: 0, tasks: 0 };  // items added in Google during `run` (not exposed in `run`)
   let lastActivity = 0;    // ms timestamp of the last event for `run`
 
   const addLog = (level, msg) => {
@@ -81,6 +90,7 @@ export function createRunStatus({
 
   const begin = (source, days) => {
     run = { source, days, started_at: formatLocalTimestamp(now()), total: null, done: 0 };
+    counters = { calendar: 0, tasks: 0 };
     touch();
   };
 
@@ -97,9 +107,11 @@ export function createRunStatus({
       range_from: from,
       range_to: to,
       emails_read: run.done,
+      calendar_added: counters.calendar,
+      tasks_added: counters.tasks,
       ok: true,
     };
-    addLog('info', `Execução concluída: ${emailsRead(run.done)}`);
+    addLog('info', `Execução concluída: ${[emailsRead(run.done), ...describeItems(counters, 'na agenda', 'nas tasks')].join(', ')}`);
     run = null;
   };
 
@@ -130,6 +142,17 @@ export function createRunStatus({
       if (run.total !== null) run.done = Math.min(run.done, run.total);
       touch();
       addLog('info', emailsRead(e.count));
+      return true;
+    },
+    items(e) {
+      if (!isCount(e.calendar) || !isCount(e.tasks)) return false;
+      if (!run) return IGNORED;
+      counters.calendar += e.calendar;
+      counters.tasks += e.tasks;
+      touch();
+      if (e.calendar > 0 || e.tasks > 0) {
+        addLog('info', `Adicionado: ${describeItems(e, 'na agenda', 'nas tasks').join(', ')}`);
+      }
       return true;
     },
     finish() {

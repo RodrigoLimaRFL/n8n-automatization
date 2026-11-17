@@ -22,7 +22,8 @@ let state = 'idle';
 let run = null;
 let lastRun = {
   started_at: '2026-11-12T10:05:03-03:00', finished_at: '2026-11-12T10:07:41-03:00',
-  days: 5, range_from: '2026-11-07', range_to: '2026-11-12', emails_read: 68, ok: true,
+  days: 5, range_from: '2026-11-07', range_to: '2026-11-12', emails_read: 68,
+  calendar_added: 3, tasks_added: 2, ok: true,
 };
 addLog('info', 'Início: últimos 5 dias');
 addLog('info', '78 emails para processar');
@@ -45,7 +46,8 @@ function startRun(days) {
       const end = new Date();
       const from = new Date(end); from.setDate(from.getDate() - days);
       lastRun = { started_at: run.started_at, finished_at: isoLocal(end), days,
-        range_from: days === 0 ? null : dateOnly(from), range_to: dateOnly(end), emails_read: run.done, ok: true };
+        range_from: days === 0 ? null : dateOnly(from), range_to: dateOnly(end), emails_read: run.done,
+        calendar_added: Math.floor(run.done / 8), tasks_added: Math.floor(run.done / 6) + (days % 2), ok: true };
       addLog('info', `Execução concluída: ${run.done} emails lidos`);
       state = 'idle'; run = null;
     }

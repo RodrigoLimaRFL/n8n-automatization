@@ -66,6 +66,17 @@ pub fn emails_read_text(n: u32) -> String {
     format!("{n} {noun}")
 }
 
+/// "Emails lidos: 68 emails   Na agenda: 3   Nas tasks: 2"; com `ok == false` termina em " (com erros)".
+pub fn emails_line(last: &LastRun) -> String {
+    let suffix = if last.ok { "" } else { " (com erros)" };
+    format!(
+        "Emails lidos: {}   Na agenda: {}   Nas tasks: {}{suffix}",
+        emails_read_text(last.emails_read),
+        last.calendar_added,
+        last.tasks_added
+    )
+}
+
 /// "12 de 78 emails lidos"; "Buscando emails..." quando `total` é desconhecido.
 pub fn progress_text(run: &Run) -> String {
     match run.total {
@@ -136,6 +147,8 @@ mod tests {
             range_from: from.map(String::from),
             range_to: "2026-11-12".into(),
             emails_read: 68,
+            calendar_added: 3,
+            tasks_added: 2,
             ok: true,
         }
     }
@@ -209,6 +222,28 @@ mod tests {
         assert_eq!(emails_read_text(0), "0 emails");
         assert_eq!(emails_read_text(1), "1 email");
         assert_eq!(emails_read_text(68), "68 emails");
+    }
+
+    #[test]
+    fn emails_line_variants() {
+        let mut l = last(5, None);
+        assert_eq!(
+            emails_line(&l),
+            "Emails lidos: 68 emails   Na agenda: 3   Nas tasks: 2"
+        );
+        l.emails_read = 1;
+        l.calendar_added = 0;
+        l.tasks_added = 0;
+        assert_eq!(
+            emails_line(&l),
+            "Emails lidos: 1 email   Na agenda: 0   Nas tasks: 0"
+        );
+        l.emails_read = 0;
+        l.ok = false;
+        assert_eq!(
+            emails_line(&l),
+            "Emails lidos: 0 emails   Na agenda: 0   Nas tasks: 0 (com erros)"
+        );
     }
 
     #[test]

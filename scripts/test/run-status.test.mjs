@@ -309,3 +309,69 @@ test('session limit errors add one warn line; other errors do not', () => {
   assert.equal(line.msg, SESSION_LIMIT_MESSAGE);
   assert.equal(saved.length, 1);
 });
+
+test('items: accumulate across batches, log lines, last_run fields, reset by a new start', () => {
+  const { status } = setup();
+  ev(status, { event: 'start', days: 1, source: 'form' });
+  ev(status, { event: 'items', calendar: 2, tasks: 1 });
+  ev(status, { event: 'items', calendar: 0, tasks: 0 });
+  ev(status, { event: 'items', calendar: 1, tasks: 0 });
+  ev(status, { event: 'items', calendar: 0, tasks: 3 });
+  assert.deepEqual(status.view().run, { ...status.view().run, total: null, done: 0 });
+  assert.ok(!('calendar' in status.view().run));
+  ev(status, { event: 'finish' });
+  const v = status.view();
+  assert.equal(v.last_run.calendar_added, 3);
+  assert.equal(v.last_run.tasks_added, 4);
+  assert.deepEqual(msgs(status), [
+    'Início: último dia',
+    'Adicionado: 2 na agenda, 1 nas tasks',
+    'Adicionado: 1 na agenda',
+    'Adicionado: 3 nas tasks',
+    'Execução concluída: 0 emails lidos, 3 na agenda, 4 nas tasks',
+  ]);
+  ev(status, { event: 'start', days: 1, source: 'form' });
+  ev(status, { event: 'finish' });
+  assert.equal(status.view().last_run.calendar_added, 0);
+  assert.equal(status.view().last_run.tasks_added, 0);
+  assert.equal(msgs(status).at(-1), 'Execução concluída: 0 emails lidos');
+});
+
+test('items: a restarted run does not inherit counters', () => {
+  const { status } = setup();
+  ev(status, { event: 'start', days: 1 });
+  ev(status, { event: 'items', calendar: 5, tasks: 5 });
+  ev(status, { event: 'start', days: 1 });
+  ev(status, { event: 'items', calendar: 1, tasks: 0 });
+  ev(status, { event: 'finish' });
+  assert.equal(status.view().last_run.calendar_added, 1);
+  assert.equal(status.view().last_run.tasks_added, 0);
+});
+
+test('items without a run are ignored but accepted; invalid values are rejected', () => {
+  const { status, saved } = setup();
+  ev(status, { event: 'items', calendar: 1, tasks: 1 });
+  assert.deepEqual(saved, []);
+  assert.deepEqual(status.view().log, []);
+  for (const b of [
+    { event: 'items' }, { event: 'items', calendar: 1 }, { event: 'items', tasks: 1 },
+    { event: 'items', calendar: -1, tasks: 0 }, { event: 'items', calendar: 1.5, tasks: 0 },
+    { event: 'items', calendar: '1', tasks: 0 }, { event: 'items', calendar: 0, tasks: null },
+  ]) assert.equal(status.applyEvent(b), false, JSON.stringify(b));
+  ev(status, { event: 'start', days: 1 });
+  assert.equal(status.applyEvent({ event: 'items', calendar: 1, tasks: -1 }), false);
+  ev(status, { event: 'finish' });
+  assert.equal(status.view().last_run.calendar_added, 0);
+});
+
+test('old snapshot without the item fields loads with zeros', () => {
+  const old = {
+    last_run: { started_at: 'a', finished_at: 'b', days: 5, range_from: null, range_to: 'c', emails_read: 7, ok: true },
+    log: [], seq: 0,
+  };
+  const { status } = setup(old);
+  const v = status.view();
+  assert.equal(v.last_run.emails_read, 7);
+  assert.equal(v.last_run.calendar_added, 0);
+  assert.equal(v.last_run.tasks_added, 0);
+});
